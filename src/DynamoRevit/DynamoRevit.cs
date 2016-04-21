@@ -121,13 +121,17 @@ namespace Dynamo.Applications
 
         private static DynamoRevitCommandData extCommandData;
         private static DynamoViewModel dynamoViewModel;
-        private static RevitDynamoModel revitDynamoModel;
+        public static RevitDynamoModel revitDynamoModel;
+        //public static RevitDynamoModel revitDynamoModelPlaylist;
+        //public static RevitDynamoModel revitDynamoModelPlaylist2;
         private static bool handledCrash;
 
         // These fields are used to store information that
         // is pulled from the journal file.
         private static bool shouldShowUi = true;
         private static bool isAutomationMode;
+
+        private static bool bFirstModel = true;
 
         /// <summary>
         /// The journal file can use this key to specify whether
@@ -159,17 +163,30 @@ namespace Dynamo.Applications
             InitializeCore(commandData);
 
             try
-            {
+            {                
+//                 if (CheckForPlaylistRun(commandData))
+//                 {
+//                         // create core data models
+//                         if (revitDynamoModelPlaylist == null)
+//                         {
+//                             revitDynamoModelPlaylist = InitializeCoreModel(commandData);
+//                             revitDynamoModelPlaylist.UpdateManager.RegisterExternalApplicationProcessId(Process.GetCurrentProcess().Id);
+//                         }
+// 
+//                       
+//                         return 0;
+//                 }
+
+                UpdateSystemPathForProcess();
+
                 extCommandData = commandData;
                 shouldShowUi = CheckJournalForUiDisplay(extCommandData);
                 isAutomationMode = CheckJournalForAutomationMode(extCommandData);
 
-                UpdateSystemPathForProcess();
-
                 // create core data models
                 revitDynamoModel = InitializeCoreModel(extCommandData);
                 revitDynamoModel.UpdateManager.RegisterExternalApplicationProcessId(Process.GetCurrentProcess().Id);
-                dynamoViewModel = InitializeCoreViewModel(revitDynamoModel);
+                //dynamoViewModel = InitializeCoreViewModel(revitDynamoModel);
 
                 revitDynamoModel.Logger.Log("SYSTEM", string.Format("Environment Path:{0}", Environment.GetEnvironmentVariable("PATH")));
 
@@ -179,7 +196,7 @@ namespace Dynamo.Applications
                 // show the window
                 if (shouldShowUi)
                 {
-                    InitializeCoreView().Show();
+                    //InitializeCoreView().Show();
                 }
 
                 TryOpenWorkspaceInCommandData(extCommandData);
@@ -370,6 +387,24 @@ namespace Dynamo.Applications
             }
 
             return result;
+        }
+
+        private static bool CheckForPlaylistRun(DynamoRevitCommandData commandData)
+        {
+            
+            if (commandData.JournalData == null)
+            {
+                return true;
+            }
+
+            if (commandData.JournalData.ContainsKey("RunPlaylist"))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }                
         }
 
         private static bool CheckJournalForAutomationMode(DynamoRevitCommandData commandData)

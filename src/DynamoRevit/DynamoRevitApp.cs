@@ -40,6 +40,13 @@ namespace Dynamo.Applications
         private static readonly Queue<Action> idleActionQueue = new Queue<Action>(10);
         private static EventHandlerProxy proxy;
         private AddInCommandBinding dynamoCommand;
+        private AddInCommandBinding playlistCommand;
+
+        public static UIApplication currentApplication;        
+        private static Dictionary<string, string> lastJournalData = new Dictionary<string, string>();
+
+        private static PlaylistServer ourServer;
+        public static bool postedCommand = false;
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -68,7 +75,13 @@ namespace Dynamo.Applications
                 dynamoCommand.BeforeExecuted += beforeExecuted;
                 dynamoCommand.Executed += executed;
                 DynamoButtonEnabled = true; //initialize
-            
+
+                var playlistCmdId = RevitCommandId.LookupCommandId("ID_PLAYLIST_DYNAMO");
+                playlistCommand = application.CreateAddInCommandBinding(playlistCmdId);
+                playlistCommand.CanExecute += canExecutePlaylist;
+                playlistCommand.BeforeExecuted += beforeExecutedPlaylist;
+                playlistCommand.Executed += executedPlaylist;
+
                 RegisterAdditionalUpdaters(application);
 
                 RevitServicesUpdater.Initialize(DynamoRevitApp.Updaters);
@@ -102,17 +115,87 @@ namespace Dynamo.Applications
 
         void executed(object sender, ExecutedEventArgs e)
         {
+//             if (currentApplication == null)
+//                 currentApplication = new UIApplication(e.ActiveDocument.Application);
             ExecuteDynamoCommand(e.GetJournalData(), new UIApplication(e.ActiveDocument.Application));
         }
+//         public static void postPlayListExecution()
+//         {
+//             DynamoRevitApp.postedCommand = true;
+//             RevitCommandId dynamoCmdId = RevitCommandId.LookupCommandId("ID_PLAYLIST_DYNAMO");
+//             DynamoRevitApp.currentApplication.PostCommand(dynamoCmdId);
+//         }
+
+        void executedPlaylist(object sender, ExecutedEventArgs e)
+        {            
+            if ( ourServer == null )
+            {
+                ourServer = new PlaylistServer(this);
+                ourServer.Start();
+//                 if ( currentApplication == null )
+//                     currentApplication = new UIApplication(e.ActiveDocument.Application);
+
+                System.Diagnostics.Process.Start("d:\\Public\\RevitPlaylist\\DynamoPlaylist.exe");
+            }
+            
+            if (!postedCommand)
+            {
+                postedCommand = true;
+                IDictionary<string, string> journalData = e.GetJournalData();
+                journalData["dynShowUI"] = "false";
+                journalData["dynAutomation"] = "false";
+
+
+                //journalData["dynPath"] = "D:\\DynamoPlaylistsDyn\\First.dyn";
+                //journalData["RunPlaylist"] = "true";
+                executed(sender, e);
+                                
+                //ExecuteDynamoCommand(journalData, new UIApplication(e.ActiveDocument.Application));
+            }
+        }
+        //         public void executePlaylistScript(ExecutedEventArgs e)
+        //         {
+        //             IDictionary<string, string> journalData = e.GetJournalData();
+        //             journalData["dynPath"] = "D:\\DynamoPlaylistsDyn\\First.dyn";
+        //             journalData["RunPlaylist"] = "true";
+        //             journalData["dynShowUI"] = "false";
+        //             journalData["dynAutomation"] = "false";
+        // 
+        //             ExecuteDynamoCommand(journalData, currentApplication);
+        //         }
+
+//         public void executePlaylistScript()
+//         {
+//             IDictionary<string, string> journalData = lastJournalData;
+//             journalData["dynPath"] = "D:\\DynamoPlaylistsDyn\\First.dyn";
+//             journalData["RunPlaylist"] = "true";
+//             journalData["dynShowUI"] = "false";
+//             journalData["dynAutomation"] = "false";
+// 
+//             currentApplication.PostCommand()
+// 
+//             ExecuteDynamoCommand(journalData, currentApplication);
+//         }
+
 
         void beforeExecuted(object sender, BeforeExecutedEventArgs e)
         {
             e.UsingCommandData = true;
         }
 
+        void beforeExecutedPlaylist(object sender, BeforeExecutedEventArgs e)
+        {
+           e.UsingCommandData = true;
+        }
+
         void canExecute(object sender, CanExecuteEventArgs e)
         {
             e.CanExecute = DynamoButtonEnabled && e.ActiveDocument != null;
+        }
+
+        void canExecutePlaylist(object sender, CanExecuteEventArgs e)
+        {
+            e.CanExecute = e.ActiveDocument != null;
         }
 
         public Result OnShutdown(UIControlledApplication application)
