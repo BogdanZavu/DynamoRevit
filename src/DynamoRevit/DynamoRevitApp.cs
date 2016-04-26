@@ -46,7 +46,10 @@ namespace Dynamo.Applications
         private static Dictionary<string, string> lastJournalData = new Dictionary<string, string>();
 
         private static PlaylistServer ourServer;
+        public static Process nodeJSProcess;
         public static bool postedCommand = false;
+
+        //public static DynamoRevit dynamoRevitContainer;
 
         public Result OnStartup(UIControlledApplication application)
         {
@@ -104,78 +107,55 @@ namespace Dynamo.Applications
         /// <returns></returns>
         public Result ExecuteDynamoCommand(IDictionary<string,string> journalData, UIApplication application)
         {
-            var data = new DynamoRevitCommandData()
+            DynamoRevitCommandData data = null;
+            if (DynamoRevit.dynamoModelState == DynamoRevit.RevitDynamoModelState.None)
+            {                
+                data = new DynamoRevitCommandData()
+                {
+                    JournalData = journalData,
+                    Application = application
+                };
+            }
+            else
             {
-                JournalData = journalData,
-                Application = application
-            };
-            var cmd = new DynamoRevit();
-            return cmd.ExecuteCommand(data);
+                data = DynamoRevit.extCommandData;
+                data.JournalData = journalData;
+            }
+                        
+            return DynamoRevit.ExecuteCommand(data, DynamoRevit.HostAppContext.DynamoUI);
         }
 
         void executed(object sender, ExecutedEventArgs e)
         {
-//             if (currentApplication == null)
-//                 currentApplication = new UIApplication(e.ActiveDocument.Application);
             ExecuteDynamoCommand(e.GetJournalData(), new UIApplication(e.ActiveDocument.Application));
         }
-//         public static void postPlayListExecution()
-//         {
-//             DynamoRevitApp.postedCommand = true;
-//             RevitCommandId dynamoCmdId = RevitCommandId.LookupCommandId("ID_PLAYLIST_DYNAMO");
-//             DynamoRevitApp.currentApplication.PostCommand(dynamoCmdId);
-//         }
+
 
         void executedPlaylist(object sender, ExecutedEventArgs e)
-        {            
-            if ( ourServer == null )
+        {
+            if (ourServer == null)
             {
                 ourServer = new PlaylistServer(this);
                 ourServer.Start();
-//                 if ( currentApplication == null )
-//                     currentApplication = new UIApplication(e.ActiveDocument.Application);
-
-                System.Diagnostics.Process.Start("d:\\Public\\RevitPlaylist\\DynamoPlaylist.exe");
+                nodeJSProcess = System.Diagnostics.Process.Start("d:\\Public\\RevitPlaylist\\DynamoPlaylist.exe");
             }
-            
-            if (!postedCommand)
-            {
-                postedCommand = true;
-                IDictionary<string, string> journalData = e.GetJournalData();
-                journalData["dynShowUI"] = "false";
-                journalData["dynAutomation"] = "false";
 
+            if (nodeJSProcess.HasExited)
+                nodeJSProcess = System.Diagnostics.Process.Start("d:\\Public\\RevitPlaylist\\DynamoPlaylist.exe");
 
-                //journalData["dynPath"] = "D:\\DynamoPlaylistsDyn\\First.dyn";
-                //journalData["RunPlaylist"] = "true";
-                executed(sender, e);
-                                
-                //ExecuteDynamoCommand(journalData, new UIApplication(e.ActiveDocument.Application));
+            DynamoRevitCommandData data = null;
+            if (DynamoRevit.dynamoModelState == DynamoRevit.RevitDynamoModelState.None)
+            {                
+                data = new DynamoRevitCommandData()
+                {
+                    JournalData = e.GetJournalData(),
+                    Application = new UIApplication(e.ActiveDocument.Application)
+                };
             }
+
+            DynamoRevit.ExecuteCommand(data, DynamoRevit.HostAppContext.Playlist);
         }
-        //         public void executePlaylistScript(ExecutedEventArgs e)
-        //         {
-        //             IDictionary<string, string> journalData = e.GetJournalData();
-        //             journalData["dynPath"] = "D:\\DynamoPlaylistsDyn\\First.dyn";
-        //             journalData["RunPlaylist"] = "true";
-        //             journalData["dynShowUI"] = "false";
-        //             journalData["dynAutomation"] = "false";
-        // 
-        //             ExecuteDynamoCommand(journalData, currentApplication);
-        //         }
 
-//         public void executePlaylistScript()
-//         {
-//             IDictionary<string, string> journalData = lastJournalData;
-//             journalData["dynPath"] = "D:\\DynamoPlaylistsDyn\\First.dyn";
-//             journalData["RunPlaylist"] = "true";
-//             journalData["dynShowUI"] = "false";
-//             journalData["dynAutomation"] = "false";
-// 
-//             currentApplication.PostCommand()
-// 
-//             ExecuteDynamoCommand(journalData, currentApplication);
-//         }
 
 
         void beforeExecuted(object sender, BeforeExecutedEventArgs e)
@@ -212,6 +192,8 @@ namespace Dynamo.Applications
             UnsubscribeApplicationEvents();
             UnsubscribeDocumentChangedEvent();
             RevitServicesUpdater.DisposeInstance();
+            
+            nodeJSProcess.Kill();
 
             return Result.Succeeded;
         }

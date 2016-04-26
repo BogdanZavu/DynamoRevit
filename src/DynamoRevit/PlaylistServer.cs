@@ -76,14 +76,13 @@ namespace Dynamo.Applications
                     Log("Message: " + msg);
                     //ws.WriteString(msg);
 
-                    DynamoRevit.revitDynamoModel.OpenFileFromPath(msg);
-                    HomeWorkspaceModel modelToRun = DynamoRevit.revitDynamoModel.CurrentWorkspace as HomeWorkspaceModel;
-                    if (modelToRun != null)
-                        modelToRun.Run();
-                    //DynamoRevitApp.AddIdleAction(DynamoRevitApp.postPlayListExecution);
-
-                    //revitApp.executePlaylistScript();
-
+                    if (DynamoRevit.dynamoModelState == DynamoRevit.RevitDynamoModelState.UIless)
+                    {
+                        DynamoRevit.revitDynamoModel.OpenFileFromPath(msg);
+                        HomeWorkspaceModel modelToRun = DynamoRevit.revitDynamoModel.CurrentWorkspace as HomeWorkspaceModel;
+                        if (modelToRun != null)
+                            modelToRun.Run();
+                    }
                 }
             }
             catch (Exception aex)
