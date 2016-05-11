@@ -137,11 +137,11 @@ namespace Dynamo.Applications
             {
                 ourServer = new PlaylistServer(this);
                 ourServer.Start();
-                nodeJSProcess = System.Diagnostics.Process.Start("d:\\Public\\RevitPlaylist\\DynamoPlaylist.exe");
+                nodeJSProcess = System.Diagnostics.Process.Start("d:\\Dynamo\\DynamoPlaylist_1.0\\build\\dev\\nw.exe");
             }
 
             if (nodeJSProcess.HasExited)
-                nodeJSProcess = System.Diagnostics.Process.Start("d:\\Public\\RevitPlaylist\\DynamoPlaylist.exe");
+                nodeJSProcess = System.Diagnostics.Process.Start("d:\\Dynamo\\DynamoPlaylist_1.0\\build\\dev\\nw.exe");
 
             DynamoRevitCommandData data = null;
             if (DynamoRevit.dynamoModelState == DynamoRevit.RevitDynamoModelState.None)
