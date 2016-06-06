@@ -110,6 +110,29 @@ namespace Dynamo.Applications
         private static EventHandlerProxy proxy;
         private AddInCommandBinding dynamoCommand;
 
+        private Result loadDependentComponents()
+        {
+            var dynamoRevitRootDirectory = Path.GetDirectoryName(Path.GetDirectoryName(assemblyName));
+            var dynamoRevitAditionsPath = Path.Combine(dynamoRevitRootDirectory,
+                string.Format("Revit_{0}", ControlledApplication.VersionNumber), "DynamoRevitAdditions.dll");
+
+            if (File.Exists(dynamoRevitAditionsPath))
+            {
+                var dynamoRevitAditionsAss = Assembly.LoadFrom(dynamoRevitAditionsPath);
+                if (dynamoRevitAditionsAss != null)
+                {
+                    var dynamoRevitAditionsLoader = dynamoRevitAditionsAss.CreateInstance("DynamoRevitAdditions.LoadManager");
+                    if (dynamoRevitAditionsLoader != null)
+                    {
+                        dynamoRevitAditionsLoader.GetType().GetMethod("Initialize").Invoke(dynamoRevitAditionsLoader, null);
+                        return Result.Succeeded;
+                    }
+                }
+            }
+
+            return Result.Succeeded;
+        }
+
         public Result OnStartup(UIControlledApplication application)
         {
             // Revit2015+ has disabled hardware acceleration for WPF to
@@ -143,6 +166,8 @@ namespace Dynamo.Applications
                 RevitServicesUpdater.Initialize(DynamoRevitApp.Updaters);
                 SubscribeDocumentChangedEvent();
 
+                loadDependentComponents();
+
                 return Result.Succeeded;
             }
             catch (Exception ex)
@@ -165,8 +190,8 @@ namespace Dynamo.Applications
                 JournalData = journalData,
                 Application = application
             };
-            var cmd = new DynamoRevit();
-            return cmd.ExecuteCommand(data);
+        
+            return DynamoRevit.ExecuteCommand(data);
         }
 
         void executed(object sender, ExecutedEventArgs e)
