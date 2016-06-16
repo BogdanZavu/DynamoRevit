@@ -155,24 +155,40 @@ namespace Dynamo.Applications
      Regeneration(RegenerationOption.Manual)]
     public class DynamoRevit : IExternalCommand
     {
-        private static List<Action> idleActions = new List<Action>();
-        enum Versions { ShapeManager = 222 }
-        public enum RevitDynamoModelState { NotStarted, StartedUI, StartedUIless };
+        enum Versions { ShapeManager = 222 };
 
+        /// <summary>
+        /// Based on the RevitDynamoModelState a dependent component can take certain 
+        /// decisions regarding its UI and functionality.
+        /// In order to be able to run a specified graph , revitDynamoModel needs to be 
+        /// at least in StartedUIless state. 
+        /// </summary>
+        public enum RevitDynamoModelState { NotStarted, StartedUIless, StartedUI };
+
+        private static List<Action> idleActions;
         private static DynamoRevitCommandData extCommandData;
         private static DynamoViewModel dynamoViewModel;
         private static RevitDynamoModel revitDynamoModel;
         private static bool handledCrash;
 
         /// <summary>
-        /// The modelState tels us if the RevitDynamoModel was started and it has the
+        /// The modelState tels us if the RevitDynamoModel was started and if has the
         /// the Dynamo UI attached to it or not 
         /// </summary>
-        private static RevitDynamoModelState modelState = RevitDynamoModelState.NotStarted;
-
-        public static RevitDynamoModelState getModelState()
+        public static RevitDynamoModelState ModelState
         {
-            return modelState;
+            get;
+            private set;
+        }
+
+        static DynamoRevit()
+        {
+            idleActions = new List<Action>();
+            extCommandData = null;
+            dynamoViewModel = null;
+            revitDynamoModel = null;
+            handledCrash = false;
+            ModelState = RevitDynamoModelState.NotStarted;
         }
 
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
@@ -180,16 +196,16 @@ namespace Dynamo.Applications
             return ExecuteCommand(new DynamoRevitCommandData(commandData));
         }
 
-        public static Result ExecuteCommand(DynamoRevitCommandData commandData)
+        public Result ExecuteCommand(DynamoRevitCommandData commandData)
         {
-            if (modelState == RevitDynamoModelState.StartedUIless)
+            if (ModelState == RevitDynamoModelState.StartedUIless)
             {
                 if (CheckJournalForUiDisplay(commandData))
                 {
                     //When we move from UIless to UI we prefer to start with a fresh revitDynamoModel
                     //in order to benefit from a startup sequence similar to Dynamo Revit UI launch.                    
                     revitDynamoModel.ShutDown(false);
-                    modelState = RevitDynamoModelState.NotStarted;
+                    ModelState = RevitDynamoModelState.NotStarted;
                 }
                 else
                 {
@@ -198,7 +214,7 @@ namespace Dynamo.Applications
                 }
             }
 
-            if(modelState == RevitDynamoModelState.StartedUI)
+            if(ModelState == RevitDynamoModelState.StartedUI)
             {
                 revitDynamoModel.Logger.LogError("Dynamo UI already started");
                 return Result.Failed;
@@ -221,14 +237,14 @@ namespace Dynamo.Applications
 
                 // handle initialization steps after RevitDynamoModel is created.
                 revitDynamoModel.HandlePostInitialization();
-                modelState = RevitDynamoModelState.StartedUIless;
+                ModelState = RevitDynamoModelState.StartedUIless;
 
                 // show the window
                 if (CheckJournalForUiDisplay(extCommandData))
                 {
                     dynamoViewModel = InitializeCoreViewModel(revitDynamoModel);
                     InitializeCoreView().Show();
-                    modelState = RevitDynamoModelState.StartedUI;
+                    ModelState = RevitDynamoModelState.StartedUI;
                     // Disable the Dynamo button to prevent a re-run
                     DynamoRevitApp.DynamoButtonEnabled = false;
                 }
@@ -470,7 +486,7 @@ namespace Dynamo.Applications
                 bool isAutomationMode = CheckJournalForAutomationMode(commandData);
                 bool forceManualRun = CheckJournalForForceManualRun(commandData);                
 
-                if (modelState == RevitDynamoModelState.StartedUIless)
+                if (ModelState == RevitDynamoModelState.StartedUIless)
                 {
                     revitDynamoModel.OpenFileFromPath(commandData.JournalData[DynamoRevitJournalKeys.JournalDynPathKey], forceManualRun);
                 }
@@ -588,7 +604,7 @@ namespace Dynamo.Applications
             DynamoRevitApp.DynamoButtonEnabled = true;
 
             //the model is shutdown when DynamoView is closed
-            modelState = RevitDynamoModelState.NotStarted;
+            ModelState = RevitDynamoModelState.NotStarted;
         }
 
         #endregion

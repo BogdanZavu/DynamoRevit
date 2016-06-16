@@ -200,8 +200,9 @@ namespace Dynamo.Applications
                 JournalData = journalData,
                 Application = application
             };
-        
-            return DynamoRevit.ExecuteCommand(data);
+
+            var cmd = new DynamoRevit();
+            return cmd.ExecuteCommand(data);
         }
 
         void executed(object sender, ExecutedEventArgs e)
